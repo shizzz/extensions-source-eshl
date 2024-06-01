@@ -140,7 +140,10 @@ class Remanga : ConfigurableSource, HttpSource() {
                     ),
                 ).execute()
                 val responseExAuthDto = json.decodeFromString<ExAuthDto>(response.body.string())
-                exManga_access_token = responseExAuthDto.data ?: responseExAuthDto.message.orEmpty()
+                exManga_access_token = responseExAuthDto.data ?: ("Ошибка авторизации ExManga: " + responseExAuthDto.message.orEmpty())
+            }
+            if (exManga_access_token.contains("Ошибка авторизации ExManga")) {
+                throw IOException(exManga_access_token)
             }
             val authRequest = request.newBuilder()
                 .addHeader("Authorization", "Bearer $exManga_access_token")
@@ -197,7 +200,7 @@ class Remanga : ConfigurableSource, HttpSource() {
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val response = chain.proceed(originalRequest)
-                if (originalRequest.url.toString().contains(exManga.substringAfter("api.")) and !(originalRequest.url.toString().contains("/auth/register")) and !response.isSuccessful) {
+                if (originalRequest.url.toString().contains(exManga.substringAfter("api.")) and !(originalRequest.url.toString().contains("/auth/register")) and !(originalRequest.url.toString().contains("storage")) and !response.isSuccessful) {
                     throw IOException("HTTP error ${response.code}. ExManga: " + json.decodeFromString<ExWrapperDto<String>>(response.body.string()).message.orEmpty())
                 }
                 response
@@ -616,14 +619,13 @@ class Remanga : ConfigurableSource, HttpSource() {
     @TargetApi(Build.VERSION_CODES.N)
     private fun pageListParse(response: Response, chapter: SChapter): List<Page> {
         val body = response.body.string()
-        val heightEmptyChunks = 10
         if (chapter.scanlator.equals("exmanga")) {
             try {
                 val exPage = json.decodeFromString<ExWrapperDto<List<List<PagesDto>>>>(body)
                 val result = mutableListOf<Page>()
                 exPage.data.orEmpty().forEach {
                     it.filter { page -> page.height > heightEmptyChunks }.forEach { page ->
-                        result.add(Page(result.size, "", page.link))
+                        result.add(Page(result.size, exManga + chapter.url, page.link))
                     }
                 }
                 return result
@@ -686,7 +688,7 @@ class Remanga : ConfigurableSource, HttpSource() {
         return if (chapter.scanlator.equals("exmanga")) exManga + chapter.url else baseUrl.replace("api.", "") + chapter.url.substringBefore("#is_bought")
     }
 
-    override fun fetchImageUrl(page: Page): Observable<String> = Observable.just(page.imageUrl!!)
+    override fun fetchImageUrl(page: Page): Observable<String> = throw NotImplementedError("Unused")
 
     override fun imageUrlRequest(page: Page): Request = throw NotImplementedError("Unused")
 
@@ -716,11 +718,23 @@ class Remanga : ConfigurableSource, HttpSource() {
     }
 
     override fun imageRequest(page: Page): Request {
-        val refererHeaders = headersBuilder().build()
-        return if (page.imageUrl!!.contains(exManga.replace("api.", ""))) {
+        return if (page.url.contains(exManga)) {
             GET(page.imageUrl!!, exHeaders())
+            /* val response = client.newCall(GET(page.imageUrl!!, exHeaders())).execute()
+             if (response.isSuccessful && (response.header("content-length", "0")?.toInt()!! > 600)) {
+                 GET(page.imageUrl!!, exHeaders())
+             } else {
+                 val exPage = json.decodeFromString<ExWrapperDto<List<List<PagesDto>>>>(client.newCall(GET(page.url, exHeaders())).execute().body.string())
+                 val exDeadPages = mutableListOf<Page>()
+                 exPage.data.orEmpty().forEach {
+                     it.filter { page -> page.height > heightEmptyChunks }.forEach { page ->
+                         exDeadPages.add(Page(exDeadPages.size, page.link.substringBefore("?"), page.link))
+                     }
+                 }
+                 GET(exDeadPages.find { it.url == page.imageUrl!!.substringBefore("?") }?.imageUrl!!, exHeaders())
+            }*/
         } else {
-            GET(page.imageUrl!!, refererHeaders)
+            GET(page.imageUrl!!, headers)
         }
     }
 
@@ -952,7 +966,8 @@ class Remanga : ConfigurableSource, HttpSource() {
         androidx.preference.CheckBoxPreference(screen.context).apply {
             key = userAgent_PREF
             title = "User-Agent приложения"
-            summary = "Использует User-Agent приложения, прописанный в настройках приложения (Настройки -> Дополнительно)"
+            summary = "Использует User-Agent приложения, прописанный в настройках приложения (Настройки -> Дополнительно).\n\n" +
+                "ⓘExManga всегда использует свой User-Agent - эта настройка никак на него не влияет"
             setDefaultValue(false)
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -1029,7 +1044,7 @@ class Remanga : ConfigurableSource, HttpSource() {
         androidx.preference.EditTextPreference(screen.context).apply {
             key = "email"
             title = "Email"
-            summary = emailEX
+            summary = emailEX + "\n\nⓘИспользуйте реальный Email и Пароль, который вы не забудете, если хотите использовать все возможности браузерного расширения ExManga"
         }.let(screen::addPreference)
 
         androidx.preference.EditTextPreference(screen.context).apply {
@@ -1066,5 +1081,7 @@ class Remanga : ConfigurableSource, HttpSource() {
         private const val exPAID_PREF = "ExChapter"
 
         private const val isLib_PREF = "LibBookmarks"
+
+        private const val heightEmptyChunks = 10
     }
 }
