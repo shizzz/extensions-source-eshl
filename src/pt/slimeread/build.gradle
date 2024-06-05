@@ -1,7 +1,7 @@
 ext {
     extName = 'SlimeRead'
     extClass = '.SlimeRead'
-    extVersionCode = 9
+    extVersionCode = 11
     isNsfw = true
 }
 
