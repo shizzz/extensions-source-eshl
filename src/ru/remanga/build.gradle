@@ -1,5 +1,5 @@
 ext {
-    extName = 'Remanga'
+    extName = 'RemangaFork'
     extClass = '.Remanga'
     extVersionCode = 91
 }

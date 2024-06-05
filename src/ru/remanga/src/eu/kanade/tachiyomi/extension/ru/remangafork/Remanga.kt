@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.ru.remanga
+package eu.kanade.tachiyomi.extension.ru.remangafork
 
 import android.annotation.TargetApi
 import android.app.Application
@@ -7,22 +7,22 @@ import android.os.Build
 import android.text.InputType
 import android.widget.Toast
 import androidx.preference.ListPreference
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.BookDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.BranchesDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.ChunksPageDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.ExAuthDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.ExBookDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.ExLibraryDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.ExWrapperDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.LibraryDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.MangaDetDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.MyLibraryDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.PageDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.PageWrapperDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.PagesDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.SeriesWrapperDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.TagsDto
-import eu.kanade.tachiyomi.extension.ru.remanga.dto.UserDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.BookDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.BranchesDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.ChunksPageDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.ExAuthDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.ExBookDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.ExLibraryDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.ExWrapperDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.LibraryDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.MangaDetDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.MyLibraryDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.PageDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.PageWrapperDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.PagesDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.SeriesWrapperDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.TagsDto
+import eu.kanade.tachiyomi.extension.ru.remangafork.dto.UserDto
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.asObservable
@@ -70,9 +70,9 @@ import kotlin.random.Random
 
 class Remanga : ConfigurableSource, HttpSource() {
 
-    override val name = "Remanga"
+    override val name = "RemangaFork"
 
-    override val id: Long = 8983242087533137528
+    override val id: Long = 8983242087533137529
 
     override val lang = "ru"
 
@@ -96,7 +96,9 @@ class Remanga : ConfigurableSource, HttpSource() {
 
     private val baseOrig: String = "https://api.remanga.org"
     private val baseMirr: String = "https://api.xn--80aaig9ahr.xn--c1avg" // https://реманга.орг
-    private val domain: String? = preferences.getString(DOMAIN_PREF, baseOrig)
+    private val baseLicensed: String = "https://api.nemanga.org"
+
+    val domain: String? = preferences.getString(DOMAIN_PREF, baseOrig)
 
     private val exManga: String = "https://api.exmanga.org"
 
@@ -368,7 +370,7 @@ class Remanga : ConfigurableSource, HttpSource() {
             2 -> SManga.ON_HIATUS // Заморожен
             3 -> SManga.ON_HIATUS // Нет переводчика
             4 -> SManga.ONGOING // Анонс
-            5 -> SManga.LICENSED // Лицензировано // Hides available chapters. !!BUT it is necessary to pacify the content owners!!
+            // 5 -> SManga.LICENSED // Лицензировано // Hides available chapters. !!BUT it is necessary to pacify the content owners!!
             else -> SManga.UNKNOWN
         }
     }
@@ -469,9 +471,9 @@ class Remanga : ConfigurableSource, HttpSource() {
             val series = json.decodeFromJsonElement<MangaDetDto>(content)
             branches[series.dir] = series.branches
             mangaIDs[series.dir] = series.id
-            if (series.status.id == 5 && series.branches.maxByOrNull { selector(it) }!!.count_chapters == 0) {
-                throw Exception("Лицензировано - Нет глав")
-            }
+            // if (series.status.id == 5 && series.branches.maxByOrNull { selector(it) }!!.count_chapters == 0) {
+            //     throw Exception("Лицензировано - Нет глав")
+            // }
             series.branches
         } else {
             emptyList()
@@ -502,9 +504,9 @@ class Remanga : ConfigurableSource, HttpSource() {
     override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
         val branch = branches.getOrElse(manga.url.substringAfter("/api/titles/").substringBefore("/").substringBefore("?")) { mangaBranches(manga) }
         return when {
-            branch.maxByOrNull { selector(it) }!!.count_chapters == 0 -> {
-                Observable.error(Exception("Лицензировано - Нет глав"))
-            }
+            // branch.maxByOrNull { selector(it) }!!.count_chapters == 0 -> {
+            //     Observable.error(Exception("Лицензировано - Нет глав"))
+            // }
             branch.isEmpty() -> {
                 if (USER_ID == "") {
                     Observable.error(Exception("Для просмотра контента необходима авторизация через WebView\uD83C\uDF0E"))
@@ -980,8 +982,22 @@ class Remanga : ConfigurableSource, HttpSource() {
         ListPreference(screen.context).apply {
             key = DOMAIN_PREF
             title = "Выбор домена"
-            entries = arrayOf("Основной (remanga.org)", "Основной (api.remanga.org)", "Зеркало (реманга.орг)", "Зеркало (api.реманга.орг)")
-            entryValues = arrayOf(baseOrig.replace("api.", ""), baseOrig, baseMirr.replace("api.", ""), baseMirr)
+            entries = arrayOf(
+                "Основной (remanga.org)",
+                "Основной (api.remanga.org)",
+                "Зеркало (реманга.орг)",
+                "Зеркало (api.реманга.орг)",
+                "Лицензированные (nemanga.org)",
+                "Лицензированные (api.nemanga.org)",
+            )
+            entryValues = arrayOf(
+                baseOrig.replace("api.", ""),
+                baseOrig,
+                baseMirr.replace("api.", ""),
+                baseMirr,
+                baseLicensed.replace("api.", ""),
+                baseLicensed,
+            )
             summary = "%s"
             setDefaultValue(baseOrig.replace("api.", ""))
             setOnPreferenceChangeListener { _, newValue ->

@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.ru.remanga.dto
+package eu.kanade.tachiyomi.extension.ru.remangafork.dto
 
 import kotlinx.serialization.Serializable
 

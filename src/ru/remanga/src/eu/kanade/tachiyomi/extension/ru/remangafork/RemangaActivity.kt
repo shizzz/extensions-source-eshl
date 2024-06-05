@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.ru.remanga
+package eu.kanade.tachiyomi.extension.ru.remangafork
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
